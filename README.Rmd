@@ -1,0 +1,104 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+# totalize
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+[Japanese README is here.](README-ja.md)
+
+Aggregate values with its group total and put into matrix tables
+
+## Installation
+
+You can install `totalize` from GitHub.
+
+``` r
+devtools::install_github("ichiromurata/totalize")
+```
+
+## How this works
+
+Summarising data can be acted by `table()`,
+
+```{r}
+table(interaction(datasets::CO2$Type, datasets::CO2$Treatment))
+```
+
+or `by()`,
+
+```{r}
+by(datasets::CO2$uptake, datasets::CO2[c("Type", "Treatment")], sum)
+```
+
+or `stats::aggregate()`.
+
+```{r}
+stats::aggregate(datasets::CO2["uptake"], datasets::CO2[c("Type", "Treatment")], sum)
+```
+
+But if you need subtotals and total (total "Type", total "Treatment" and both summed in examples above), 
+you have to calculate them through several steps, since it involves multiple count of the same data essentially 
+and can't be done by one method execution.
+
+`totalize` rolls up these operations.
+
+```{r}
+library(totalize)
+totalize(datasets::CO2, "uptake", c("Type", "Treatment"), sum) |> toDF()
+```
+
+Further, it provides matrix representation.
+
+```{r}
+totalize(datasets::CO2, "uptake", c("Type", "Treatment"), sum) |> tomatrix(1)
+```
+
+3 or more variables can be put into a (2d) matrix.
+
+```{r}
+totalize(datasets::CO2, "uptake", c("Type", "Treatment", "conc"), sum) |> tomatrix(1)
+
+totalize(datasets::CO2, "uptake", c("Type", "Treatment", "conc"), sum) |> tomatrix(c(1, 3))
+```
+
+Would you like to ignore NAs? Pass `na.rm=TRUE` to the arguments.
+
+```{r}
+# Missing values turn the totals into NA
+within(datasets::CO2, uptake[c(1, 10)] <- NA) |>
+    totalize("uptake", c("Type", "Treatment", "conc"), sum) |> tomatrix(1)
+
+# Ignoring NAs
+within(datasets::CO2, uptake[c(1, 10)] <- NA) |>
+    totalize("uptake", c("Type", "Treatment", "conc"), sum, na.rm=TRUE) |> tomatrix(1)
+```
+
+## Rounding numbers
+
+This package includes a rounding method which rounds half [away from zero](https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero).
+
+There are some difficulties when rounding floating point numbers.
+See the help page of the method `awayfromzero()`.
+
+Rounding can be chained by pipe operator `|>`.
+
+```{r}
+totalize(datasets::CO2, "uptake", c("Type", "Treatment", "conc"), mean) |>
+    tomatrix(c(2, 3)) |> awayfromzero(1)
+```
+
+
