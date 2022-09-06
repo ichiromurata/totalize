@@ -29,10 +29,10 @@
 #' 
 totalize <- function(data, target, by, FUN=sum, drop=FALSE, ...){
 	# byの変数の中からi個選ぶパターンを網羅したリスト
-	comb <- lapply(seq_len(length(by)), utils::combn, x=length(by))
+	comb <- lapply(seq_len(length(by)), utils::combn, x=length(by), simplify=FALSE)
 	# byの変数のうち1つ以上を使わない場合の小計
-	subtotalList <- lapply(comb, function(cbmtx){
-		tmptotal <- apply(cbmtx, MARGIN=2, simplify=FALSE, function(cb) {
+	subtotalList <- lapply(comb, function(cbList){
+		tmptotal <- lapply(cbList, function(cb) {
 			labels <- data[by]
 			for(i in cb) labels[[i]] <- "all"
 			sapply(split(data[[target]], interaction(labels, drop=drop, sep="|")), FUN=EmptyHandlingFunc, FUN, ...)
