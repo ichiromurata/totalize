@@ -5,12 +5,12 @@
 #' 
 #'   指定された桁位置で四捨五入を行います。
 #'
-#' @param x a numeric vector.
-#' @param digits integer indicating the number of decimal places to be used. Negative values are allowed.
-#' @param tolerance numeric >= 0. If the difference of 2 floating point values is smaller than tolerance they are regarded as equal.
+#' @param x A numeric vector.
+#' @param digits An integer indicating the number of decimal places to be used. Negative values are allowed.
+#' @param tolerance numeric >= 0. If the difference between 2 floating point values is smaller than tolerance they are regarded as equal.
 #'
 #' @details
-#'   This function is a complement of the `base::round()`, which rounds to even when rounding off a 5, where this function rounds away from 0.
+#'   This function is a complement of the `base::round()` which rounds to even when rounding off a 5, where this function rounds away from 0.
 #'   Rounding to a negative number of digits means rounding to a power of ten, so for example `round(x, digits = -2)` rounds to the nearest hundred.
 #' 
 #'   `base::round()`関数は「偶数丸め」と呼ばれる丸めを行いますが、この関数は四捨五入を行います。
@@ -19,7 +19,7 @@
 #' @returns a numeric vector the same length as `x`.
 #'
 #' @section Warning:
-#'   It's worth considering to select `tolerance` carefully, especially when rounding large numbers. (See examples)
+#'   It's worth considering how much `tolerance` is needed, especially when rounding large numbers. (See examples)
 #'
 #' @note
 #'   This rounding rule has been added in IEEE 754-2008 version. (But only for decimal(10) based formats.)
@@ -33,7 +33,8 @@
 #' round(.5 + -2:4) # IEEE / IEC default rounding (to even)
 #' ## -2  0  0  2  2  4  4
 #'
-#' # A tolerance is necessary when testing the number .5 (because of the limitation of floating point expression)
+#' # A tolerance is necessary when testing the number .5 (because of the 
+#' # limitation of floating point expression)
 #' # No tolerance version
 #' no_tolerance <- function(x, digits) {
 #'     floor(x * 10^digits + 0.5) / 10^digits
@@ -44,7 +45,8 @@
 #' awayfromzero(0.005 + 1:5/100, digits = 2)
 #' ## 0.02 0.03 0.04 0.05 0.06
 #' 
-#' # When significant >= 8 the relative error becomes too small and always rounded up (Not desired)
+#' # When significant >= 8 the relative error becomes too small and is always 
+#' # less than tolerance which leads to round up (Not desired)
 #' awayfromzero(12345678.4, digits = 0)
 #' ## 12345679 (!?)
 #' 

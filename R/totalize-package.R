@@ -1,10 +1,10 @@
-#' totalize: Aggregate values with its group total and put into matrix tables
+#' totalize: Aggregate values by groups and make their total then put into a matrix table
 #'
-#' To split data and aggregate each subset can be done by normal R methods.
-#' This function also aggregates all the subsets. It is useful especially when splitting data by 2 or more variables combination.
-#' This package also provides a matrix making function.
+#' To count or aggregate values by groups can be done by ordinary R methods, while 'totalize' makes their total additionaly.
+#' It is useful especially when grouping data by 2 or more variables combination.
+#' The return value is provided in arranged matrix representation.
 #'
 #' @docType package
 #' @aliases NULL totalize-package
-#' @import utils
+#' @import stats utils
 "_PACKAGE"
