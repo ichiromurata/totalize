@@ -9,8 +9,9 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
   fig.path = "man/figures/README-",
-  out.width = "100%"
+  out.width = "50%"
 )
+options(width=400)
 ```
 
 # totalize
@@ -28,15 +29,17 @@ knitr::opts_chunk$set(
 devtools::install_github("ichiromurata/totalize")
 ```
 
-## 概要
+# 概要
 
-データを集計するには `table()`や、
+Rにはデータを集計する様々な関数があります。
+
+`datasets::CO2`のデータを例に取りましょう。データ数のカウントは`table()`で行えます。
 
 ```{r}
 table(interaction(datasets::CO2$Type, datasets::CO2$Treatment))
 ```
 
-`by()`や、
+値の足し上げは`by()`や、
 
 ```{r}
 by(datasets::CO2$uptake, datasets::CO2[c("Type", "Treatment")], sum)
@@ -49,45 +52,59 @@ stats::aggregate(datasets::CO2["uptake"], datasets::CO2[c("Type", "Treatment")],
 ```
 
 しかしこれらを使って小計や合計（上の例では"Type"計、"Treatment"計、合計）を並べた表を
-作るには、何回かに分けて別々に算出した表を結合する必要があります。
+作るには、何回かに分けてそれらを別々に算出し、表を結合する必要があります。
 
-1つのデータを小計と合計に同時に足さなければいけないため、
+1つのデータレコードを小計と合計に同時に足さなければいけないため、
 上のようなコマンドを1回実行するだけではすべてを算出できません。
 
 `totalize`はこれをまとめて行います。
 
 ```{r}
 library(totalize)
-totalize(datasets::CO2, "uptake", c("Type", "Treatment"), sum) |> toDF()
+totalize(datasets::CO2, c(Type, Treatment), val=uptake, asDF=TRUE)
 ```
 
 さらに、2次元の集計表に展開することができます。
 
 ```{r}
-totalize(datasets::CO2, "uptake", c("Type", "Treatment"), sum) |> tomatrix(1)
+totalize(datasets::CO2, row=Type, col=Treatment, val=uptake)
 ```
 
 3つ以上の変数があっても、集計表に展開できます。
 
 ```{r}
-totalize(datasets::CO2, "uptake", c("Type", "Treatment", "conc"), sum) |> tomatrix(1)
+totalize(datasets::CO2, row=Type, col=c(Treatment, conc), val=uptake)
 
-totalize(datasets::CO2, "uptake", c("Type", "Treatment", "conc"), sum) |> tomatrix(c(1, 3))
+totalize(datasets::CO2, row=c(Type, conc), col=Treatment, val=uptake)
 ```
 
-`na.rm=TRUE`を引数に追加すると、NAを無視できます。
+`FUN=sum`などの場合は`na.rm=TRUE`を引数に追加すると、データ中のNAを無視できます。
 
 ```{r}
 # Missing values turn the totals into NA
-within(datasets::CO2, uptake[c(1, 10)] <- NA) |>
-    totalize("uptake", c("Type", "Treatment", "conc"), sum) |> tomatrix(1)
+transform(datasets::CO2, uptake_na=replace(uptake, c(1, 10), NA)) |>
+    totalize(row=Type, col=c(Treatment, conc), val=uptake_na)
 
 # Ignoring NAs
-within(datasets::CO2, uptake[c(1, 10)] <- NA) |>
-    totalize("uptake", c("Type", "Treatment", "conc"), sum, na.rm=TRUE) |> tomatrix(1)
+transform(datasets::CO2, uptake_na=replace(uptake, c(1, 10), NA)) |>
+    totalize(row=Type, col=c(Treatment, conc), val=uptake_na, na.rm=TRUE)
 ```
 
-## 四捨五入について
+## 1行（1列）のみの表
+
+`totailze`は1列のみの表も作成できます。
+
+```{r}
+totalize(datasets::CO2, row=c(Type, Treatment), val=uptake)
+```
+
+1行のみの表を作る場合は、上の表を転置`t()`してください。
+
+```{r}
+totalize(datasets::CO2, row=c(Type, Treatment), val=uptake) |> t()
+```
+
+# 四捨五入について
 
 このパッケージでは四捨五入をする関数`awayfromzero()`を提供しています。
 
@@ -99,8 +116,8 @@ Rの`round()`関数は四捨五入ではなく偶数丸めを行います。四�
 四捨五入はパイプ演算子`|>`で結んで実行できます。
 
 ```{r}
-totalize(datasets::CO2, "uptake", c("Type", "Treatment", "conc"), mean) |>
-    tomatrix(c(2, 3)) |> awayfromzero(1)
+totalize(datasets::CO2, row=c(Treatment, conc), col=Type, val=uptake, FUN=mean) |>
+    awayfromzero(1)
 ```
 
 

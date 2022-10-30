@@ -9,8 +9,9 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
   fig.path = "man/figures/README-",
-  out.width = "100%"
+  out.width = "50%"
 )
+options(width=400)
 ```
 
 # totalize
@@ -20,7 +21,7 @@ knitr::opts_chunk$set(
 
 [Japanese README is here.](README-ja.md)
 
-Aggregate values with its group total and put into matrix tables
+Aggregate values by groups and make their total then put into a matrix table
 
 ## Installation
 
@@ -30,15 +31,17 @@ You can install `totalize` from GitHub.
 devtools::install_github("ichiromurata/totalize")
 ```
 
-## How this works
+# How this works
 
-Summarising data can be acted by `table()`,
+Aggregating data can be done by ordinary R methods.
+
+Take `datasets::CO2` for example. You can count the data by `table()`,
 
 ```{r}
 table(interaction(datasets::CO2$Type, datasets::CO2$Treatment))
 ```
 
-or `by()`,
+or aggregate values using`by()`,
 
 ```{r}
 by(datasets::CO2$uptake, datasets::CO2[c("Type", "Treatment")], sum)
@@ -50,44 +53,58 @@ or `stats::aggregate()`.
 stats::aggregate(datasets::CO2["uptake"], datasets::CO2[c("Type", "Treatment")], sum)
 ```
 
-But if you need subtotals and total (total "Type", total "Treatment" and both summed in examples above), 
-you have to calculate them through several steps, since it involves multiple count of the same data essentially 
+But if you need subtotals and total (total "Type", total "Treatment" and both summed in the examples above), 
+you have to calculate them through several steps since it involves multiple counting of the same data essentially 
 and can't be done by one method execution.
 
 `totalize` rolls up these operations.
 
 ```{r}
 library(totalize)
-totalize(datasets::CO2, "uptake", c("Type", "Treatment"), sum) |> toDF()
+totalize(datasets::CO2, c(Type, Treatment), val=uptake, asDF=TRUE)
 ```
 
 Further, it provides matrix representation.
 
 ```{r}
-totalize(datasets::CO2, "uptake", c("Type", "Treatment"), sum) |> tomatrix(1)
+totalize(datasets::CO2, row=Type, col=Treatment, val=uptake)
 ```
 
 3 or more variables can be put into a (2d) matrix.
 
 ```{r}
-totalize(datasets::CO2, "uptake", c("Type", "Treatment", "conc"), sum) |> tomatrix(1)
+totalize(datasets::CO2, row=Type, col=c(Treatment, conc), val=uptake)
 
-totalize(datasets::CO2, "uptake", c("Type", "Treatment", "conc"), sum) |> tomatrix(c(1, 3))
+totalize(datasets::CO2, row=c(Type, conc), col=Treatment, val=uptake)
 ```
 
-Would you like to ignore NAs? Pass `na.rm=TRUE` to the arguments.
+Would you like to ignore NAs in the data when `FUN=sum`? Pass `na.rm=TRUE` to the arguments.
 
 ```{r}
 # Missing values turn the totals into NA
-within(datasets::CO2, uptake[c(1, 10)] <- NA) |>
-    totalize("uptake", c("Type", "Treatment", "conc"), sum) |> tomatrix(1)
+transform(datasets::CO2, uptake_na=replace(uptake, c(1, 10), NA)) |>
+    totalize(row=Type, col=c(Treatment, conc), val=uptake_na)
 
 # Ignoring NAs
-within(datasets::CO2, uptake[c(1, 10)] <- NA) |>
-    totalize("uptake", c("Type", "Treatment", "conc"), sum, na.rm=TRUE) |> tomatrix(1)
+transform(datasets::CO2, uptake_na=replace(uptake, c(1, 10), NA)) |>
+    totalize(row=Type, col=c(Treatment, conc), val=uptake_na, na.rm=TRUE)
 ```
 
-## Rounding numbers
+## Single row or column matrix
+
+`totailze` can make a 1-column matrix.
+
+```{r}
+totalize(datasets::CO2, row=c(Type, Treatment), val=uptake)
+```
+
+If you need a 1-row matrix, use transpose function `t()`.
+
+```{r}
+totalize(datasets::CO2, row=c(Type, Treatment), val=uptake) |> t()
+```
+
+# Rounding numbers
 
 This package includes a rounding method which rounds half [away from zero](https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero).
 
@@ -97,8 +114,8 @@ See the help page of the method `awayfromzero()`.
 Rounding can be chained by pipe operator `|>`.
 
 ```{r}
-totalize(datasets::CO2, "uptake", c("Type", "Treatment", "conc"), mean) |>
-    tomatrix(c(2, 3)) |> awayfromzero(1)
+totalize(datasets::CO2, row=c(Treatment, conc), col=Type, val=uptake, FUN=mean) |>
+    awayfromzero(1)
 ```
 
 
