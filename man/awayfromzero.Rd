@@ -7,11 +7,11 @@
 awayfromzero(x, digits = 0, tolerance = sqrt(.Machine$double.eps))
 }
 \arguments{
-\item{x}{a numeric vector.}
+\item{x}{A numeric vector.}
 
-\item{digits}{integer indicating the number of decimal places to be used. Negative values are allowed.}
+\item{digits}{An integer indicating the number of decimal places to be used. Negative values are allowed.}
 
-\item{tolerance}{numeric >= 0. If the difference of 2 floating point values is smaller than tolerance they are regarded as equal.}
+\item{tolerance}{numeric >= 0. If the difference between 2 floating point values is smaller than tolerance they are regarded as equal.}
 }
 \value{
 a numeric vector the same length as \code{x}.
@@ -22,7 +22,7 @@ Rounds the values in its first argument to the specified number of decimal place
 指定された桁位置で四捨五入を行います。
 }
 \details{
-This function is a complement of the \code{base::round()}, which rounds to even when rounding off a 5, where this function rounds away from 0.
+This function is a complement of the \code{base::round()} which rounds to even when rounding off a 5, where this function rounds away from 0.
 Rounding to a negative number of digits means rounding to a power of ten, so for example \code{round(x, digits = -2)} rounds to the nearest hundred.
 
 \code{base::round()}関数は「偶数丸め」と呼ばれる丸めを行いますが、この関数は四捨五入を行います。
@@ -33,7 +33,7 @@ This rounding rule has been added in IEEE 754-2008 version. (But only for decima
 }
 \section{Warning}{
 
-It's worth considering to select \code{tolerance} carefully, especially when rounding large numbers. (See examples)
+It's worth considering how much \code{tolerance} is needed, especially when rounding large numbers. (See examples)
 }
 
 \examples{
@@ -43,7 +43,8 @@ awayfromzero(.5 + -2:4) # round away from 0 when rounding off a 5
 round(.5 + -2:4) # IEEE / IEC default rounding (to even)
 ## -2  0  0  2  2  4  4
 
-# A tolerance is necessary when testing the number .5 (because of the limitation of floating point expression)
+# A tolerance is necessary when testing the number .5 (because of the 
+# limitation of floating point expression)
 # No tolerance version
 no_tolerance <- function(x, digits) {
     floor(x * 10^digits + 0.5) / 10^digits
@@ -54,7 +55,8 @@ no_tolerance(0.005 + 1:5/100, digits = 2)	# It goes wrong at 0.035
 awayfromzero(0.005 + 1:5/100, digits = 2)
 ## 0.02 0.03 0.04 0.05 0.06
 
-# When significant >= 8 the relative error becomes too small and always rounded up (Not desired)
+# When significant >= 8 the relative error becomes too small and is always 
+# less than tolerance which leads to round up (Not desired)
 awayfromzero(12345678.4, digits = 0)
 ## 12345679 (!?)
 
