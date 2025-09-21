@@ -52,37 +52,52 @@ totalize <- function(data, row, col=NULL, val=NULL, FUN=sum, asDF=FALSE, drop=FA
 	by_idx <- eval(substitute(c(row, col)), dataenv, enclos=parent.frame())
 	val_idx <- eval(substitute(val), dataenv, enclos=parent.frame())
 	
+	# Value must be single column
+	if(length(val_idx) > 1){
+		stop("Only one column can be specified for 'val'.", call.=FALSE)
+	}
+
 	by_df <- data[by_idx]
-	val_df <- if(is.null(val_idx)) list(n=rep(1L, nrow(data))) else data[val_idx]
+	val_df <- if(is.null(val_idx)) data.frame(n=rep(1L, nrow(data))) else data[val_idx]
 	
 	# All combinations of subtotals
-	comb <- lapply(seq_along(by_idx), utils::combn, x=length(by_idx), simplify=FALSE)
+	num_subcol <- length(by_idx)
+	comb <- lapply(seq_len(num_subcol - 1), utils::combn, x=num_subcol)
 	# Column totals
-	subtotalList <- lapply(comb, function(cbList){
-		tmptotal <- lapply(cbList, function(cb) {
-			labels <- by_df
-			for(i in cb) labels[[i]] <- "all"
-			stats::aggregate(val_df, labels, FUN=FUN, ..., drop=drop)
-			})
-		do.call(rbind, tmptotal)
+	subtotalList <- lapply(comb, function(cbMtx){
+		tmptotal <- apply(cbMtx, MARGIN=2, function(cbArray) {
+			by_tmp <- by_df
+			for(i in cbArray){
+				by_tmp[[i]] <- factor(paste("all", names(by_df[i]), sep="_"))
+			}
+			tapply(val_df[[1]], list(interaction(by_tmp, sep="|")), FUN=FUN, ...)
+			}, simplify=FALSE)
+		unlist(tmptotal)
 		})
-	subtotals <- do.call(rbind, subtotalList)
+	subtotals <- unlist(subtotalList)
+	# Total
+	total <- FUN(val_df[[1]], ...)
+	names(total) <- paste("all", names(by_df), sep="_", collapse="|")
 	# Aggregate each cells
-	crosscells <- stats::aggregate(val_df, by_df, FUN=FUN, ..., drop=drop)
+	crosscells <- tapply(val_df[[1]], interaction(by_df, sep="|", drop=drop), FUN=FUN, ...)
 	
-	result <- rbind(crosscells, subtotals)
-	
-	# Add "all" level
-	for(i in seq_along(by_idx)){
-		add_all <- if(is.factor(by_df[[i]])) append("all", levels(by_df[[i]])) else append("all", unique(by_df[[i]]))
-		result[[i]] <- factor(result[[i]], levels=add_all)
-	}
-	
-	result <- result[order(interaction(result[seq_along(by_idx)], lex.order=TRUE)), ]
-	row.names(result) <- NULL
-	
-	if(asDF == FALSE){
-		result <- to_matrix(result, seq_along(row_idx), length(result), label_abbr)
+	result <- c(total, subtotals, crosscells)
+	label_grid <- expand.grid(lapply(names(by_df), function(x) {
+		c(paste("all", x, sep="_"), if(is.factor(by_df[[x]])) levels(by_df[[x]]) else unique(by_df[[x]]))
+	}))
+	result <- result[levels(interaction(label_grid, sep="|"))]
+
+	if(asDF == TRUE){
+		result <- data.frame(label_grid, result, row.names=NULL)
+		names(result) <- c(names(by_df), names(val_df))
+		if(drop){
+			result <- result[!is.na(result[[ncol(result)]]), ]
+			row.names(result) <- NULL
+		}
+	} else {
+		rowlabel <- levels(interaction(label_grid[seq_along(row_idx)], sep="|"))
+		collabel <- if(!missing(col)) levels(interaction(label_grid[-seq_along(row_idx)], sep="|")) else names(val_df)
+		result <- matrix(result, nrow=length(rowlabel), dimnames=list(rowlabel, collabel))
 	}
 	
 	result
