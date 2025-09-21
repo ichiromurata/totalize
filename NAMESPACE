@@ -2,6 +2,5 @@
 
 export(awayfromzero)
 export(totalize)
-export(totalize_weightedmean)
 import(stats)
 import(utils)

@@ -1,8 +1,8 @@
 ---
-output: github_document
+format: gfm
 ---
 
-<!-- README.md is generated from README.Rmd. Please edit that file -->
+<!-- README.md is generated from README.Rmd. Do not edit README.md directly. -->
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
@@ -19,32 +19,38 @@ options(width=400)
 <!-- badges: start -->
 <!-- badges: end -->
 
-[Japanese README is here.](README-ja.md)
+[日本語版はこちら](README-ja.md) (README in Japanese)
 
-Aggregate values by groups and make their total then put into a matrix table
+Aggregate values by specified groups and adds their group totals
 
 ## Installation
 
-You can install `totalize` from GitHub.
+You can install `totalize` directly from its GitHub repository:
 
 ``` r
 devtools::install_github("ichiromurata/totalize")
 ```
 
-# How this works
+## TL;DR
 
-Aggregating data can be done by ordinary R methods.
+![](example.png)
 
-Take `datasets::CO2` for example. You can count the data by `table()`,
+## How this works
+
+Standard R functions provide several methods for data aggregation.
+
+For instance, using `datasets::CO2` as an example, you can count data with `table()`:
 
 ```{r}
-table(interaction(datasets::CO2$Type, datasets::CO2$Treatment))
+table(datasets::CO2$Type, datasets::CO2$Treatment)
 ```
 
-or aggregate values using`by()`,
+Alternatively, you can sum values using `tapply()`, `stats::xtabs()`,
 
 ```{r}
-by(datasets::CO2$uptake, datasets::CO2[c("Type", "Treatment")], sum)
+tapply(datasets::CO2$uptake, datasets::CO2[c("Type", "Treatment")], FUN=sum)
+
+stats::xtabs(uptake~Type+Treatment, data=datasets::CO2)
 ```
 
 or `stats::aggregate()`.
@@ -53,24 +59,22 @@ or `stats::aggregate()`.
 stats::aggregate(datasets::CO2["uptake"], datasets::CO2[c("Type", "Treatment")], sum)
 ```
 
-But if you need subtotals and total (total "Type", total "Treatment" and both summed in the examples above), 
-you have to calculate them through several steps since it involves multiple counting of the same data essentially 
-and can't be done by one method execution.
+However, a common limitation of these functions is that they do not compute subtotals (e.g., by 'Type' or 'Treatment') and the grand total in a single step. Calculating these different levels of aggregation typically requires additional, separate operations, as the functions are not designed to consolidate them into a unified output.
 
-`totalize` rolls up these operations.
+`totalize` streamlines this entire process into a single command:
 
 ```{r}
 library(totalize)
 totalize(datasets::CO2, c(Type, Treatment), val=uptake, asDF=TRUE)
 ```
 
-Further, it provides matrix representation.
+Furthermore, `totalize` can produce a neatly arranged matrix representation of the results:
 
 ```{r}
 totalize(datasets::CO2, row=Type, col=Treatment, val=uptake)
 ```
 
-3 or more variables can be put into a (2d) matrix.
+When grouping by three or more variables, `totalize` organizes the output into a 2-dimensional matrix by creating combined group labels for clarity:
 
 ```{r}
 totalize(datasets::CO2, row=Type, col=c(Treatment, conc), val=uptake)
@@ -78,44 +82,64 @@ totalize(datasets::CO2, row=Type, col=c(Treatment, conc), val=uptake)
 totalize(datasets::CO2, row=c(Type, conc), col=Treatment, val=uptake)
 ```
 
-Would you like to ignore NAs in the data when `FUN=sum`? Pass `na.rm=TRUE` to the arguments.
+To ignore `NA` values when aggregating, simply pass arguments like `na.rm=TRUE` to the aggregation function (`FUN`):
 
 ```{r}
 # Missing values turn the totals into NA
-transform(datasets::CO2, uptake_na=replace(uptake, c(1, 10), NA)) |>
-    totalize(row=Type, col=c(Treatment, conc), val=uptake_na)
+totalize(datasets::penguins, species, island, val=body_mass, FUN=sum)
 
 # Ignoring NAs
-transform(datasets::CO2, uptake_na=replace(uptake, c(1, 10), NA)) |>
-    totalize(row=Type, col=c(Treatment, conc), val=uptake_na, na.rm=TRUE)
+totalize(datasets::penguins, species, island, val=body_mass, FUN=sum, na.rm=TRUE)
+```
+
+## Handling Unclassified Data
+
+In many datasets, some records may not be assigned to a category in a grouping variable (i.e., they have NA values). While these "unclassified" items don't belong to a specific group, they are essential for calculating accurate overall totals.
+
+A common pitfall is to calculate a grand total by summing previously calculated group totals. This approach incorrectly excludes the unclassified items. To ensure accuracy, `totalize` always re-aggregates from the original, unfiltered data when computing subtotals and the grand total, thereby correctly including all entries.
+
+For instance, in the [palmerpenguins](https://allisonhorst.github.io/palmerpenguins/) dataset, the sum of "female" and "male" does not equal the total number of penguins because some have an unspecified sex. `totalize` accounts for this discrepancy:
+
+```{r}
+# Correctly count the total that does not match the sum of female + male
+totalize(datasets::penguins, species, sex)
+
+# `addmargins()` excludes the unclassified data
+xtabs(~species+sex, data=datasets::penguins) |>
+  addmargins()
 ```
 
 ## Single row or column matrix
 
-`totailze` can make a 1-column matrix.
+`totalize` can also produce a single-column matrix when only row groupings are specified:
 
 ```{r}
 totalize(datasets::CO2, row=c(Type, Treatment), val=uptake)
 ```
 
-If you need a 1-row matrix, use transpose function `t()`.
+To obtain a single-row matrix, you can easily transpose the result using the `t()` function:
 
 ```{r}
 totalize(datasets::CO2, row=c(Type, Treatment), val=uptake) |> t()
 ```
 
+## Non standard evaluation (NSE)
+
+The `row`, `col`, and `val` parameters support 'non-standard evaluation' (NSE).
+This means you can refer to column names directly, without needing to enclose them in quotes.
+
+
 # Rounding numbers
 
-This package includes a rounding method which rounds half [away from zero](https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero).
+This package provides an `awayfromzero()` method for rounding, which rounds halves [away from zero](https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero).
 
-There are some difficulties when rounding floating point numbers.
-See the help page of the method `awayfromzero()`.
+`awayfromzero()` is designed to address floating-point precision issues by dynamically scaling its rounding tolerance based on the magnitude of the input number.
 
-Rounding can be chained by pipe operator `|>`.
+This rounding function can be conveniently chained with other operations using the pipe operator `|>`.
 
 ```{r}
 totalize(datasets::CO2, row=c(Treatment, conc), col=Type, val=uptake, FUN=mean) |>
-    awayfromzero(1)
+    awayfromzero(digits = 1)
 ```
 
 

@@ -1,133 +1,213 @@
+factor_asis <- function(x){
+	factor(x, levels=x)
+}
+
 test_that("example1 works", {
 	test_mtx <- totalize(CO2, conc, c(Type, Treatment))
-	ans_mtx <- structure(c(84L, 12L, 12L, 12L, 12L, 12L, 12L, 12L, 42L, 6L, 
-6L, 6L, 6L, 6L, 6L, 6L, 42L, 6L, 6L, 6L, 6L, 6L, 6L, 6L, 42L, 
-6L, 6L, 6L, 6L, 6L, 6L, 6L, 21L, 3L, 3L, 3L, 3L, 3L, 3L, 3L, 
-21L, 3L, 3L, 3L, 3L, 3L, 3L, 3L, 42L, 6L, 6L, 6L, 6L, 6L, 6L, 
-6L, 21L, 3L, 3L, 3L, 3L, 3L, 3L, 3L, 21L, 3L, 3L, 3L, 3L, 3L, 
-3L, 3L), dim = 8:9, dimnames = list(conc = c("all", "95", "175", 
-"250", "350", "500", "675", "1000"), `Type,Treatment` = c("all|all", 
-"all|nonchilled", "all|chilled", "Quebec|all", "Quebec|nonchilled", 
-"Quebec|chilled", "Mississippi|all", "Mississippi|nonchilled", 
-"Mississippi|chilled")))
+	crosstbl <- table(CO2$conc, interaction(CO2$Type, CO2$Treatment, lex.order=TRUE))
+	conc_type <- table(CO2$conc, CO2$Type)
+	conc_treat <- table(CO2$conc, CO2$Treatment)
+	conc_all <- table(CO2$conc)
+	type_treat <- table(interaction(CO2$Type, CO2$Treatment, lex.order=TRUE))
+	type_all <- table(CO2$Type)
+	treat_all <- table(CO2$Treatment)
+	total <- nrow(CO2)
+	all_col <- c(total, conc_all)
+	type_col <- rbind(type_all, conc_type)
+	treat_col <- rbind(treat_all, conc_treat)
+	cross_col <- rbind(type_treat, crosstbl)
+	ans_mtx <- cbind(all_col, type_col, treat_col[, 1], cross_col[, 1:2], treat_col[, 2], cross_col[, 3:4])
+	dim_conc <- c("all_conc", unique(CO2$conc))
+	dim_type <- factor_asis(c("all_Type", levels(CO2$Type)))
+	dim_treat <- factor_asis(c("all_Treatment", levels(CO2$Treatment)))
+	dimnames(ans_mtx) <- list(conc = dim_conc, `Type,Treatment` = levels(interaction(dim_type, dim_treat, sep="|", lex.order=TRUE)))
 	
 	expect_equal(test_mtx, ans_mtx)
 })
 
 test_that("example2 works", {
 	test_mtx <- totalize(CO2, conc, c(Type, Treatment), uptake, FUN=mean)
-	ans_mtx <- structure(c(27.213095238095239, 12.258333333333333, 22.283333333333331, 
-28.875, 30.666666666666668, 30.875, 31.949999999999999, 33.583333333333336, 
-30.642857142857142, 13.283333333333333, 25.116666666666667, 32.466666666666669, 
-35.133333333333333, 35.100000000000001, 36.016666666666666, 37.383333333333333, 
-23.783333333333331, 11.233333333333333, 19.449999999999999, 25.283333333333335, 
-26.199999999999999, 26.649999999999999, 27.883333333333333, 29.783333333333331, 
-33.542857142857144, 14.066666666666666, 27.083333333333332, 35.93333333333333, 
-38.083333333333336, 38.133333333333333, 39.5, 42, 35.333333333333336, 
-15.266666666666666, 30.033333333333331, 37.399999999999999, 40.366666666666667, 
-39.600000000000001, 41.5, 43.166666666666664, 31.752380952380953, 
-12.866666666666667, 24.133333333333333, 34.466666666666669, 35.799999999999997, 
-36.666666666666664, 37.5, 40.833333333333336, 20.883333333333333, 
-10.449999999999999, 17.483333333333334, 21.816666666666666, 23.25, 
-23.616666666666667, 24.399999999999999, 25.166666666666668, 25.952380952380953, 
-11.300000000000001, 20.199999999999999, 27.533333333333335, 29.899999999999999, 
-30.599999999999998, 30.533333333333335, 31.600000000000001, 15.814285714285713, 
-9.5999999999999996, 14.766666666666667, 16.100000000000001, 16.599999999999998, 
-16.633333333333333, 18.266666666666666, 18.733333333333334), dim = 8:9, dimnames = list(
-    conc = c("all", "95", "175", "250", "350", "500", "675", 
-    "1000"), `Type,Treatment` = c("all|all", "all|nonchilled", 
-    "all|chilled", "Quebec|all", "Quebec|nonchilled", "Quebec|chilled", 
-    "Mississippi|all", "Mississippi|nonchilled", "Mississippi|chilled"
-    )))
+	crosstbl <- stats::aggregate(CO2["uptake"], CO2[c("conc", "Type", "Treatment")], FUN=mean)
+	conc_type <- stats::aggregate(CO2["uptake"], CO2[c("conc", "Type")], FUN=mean)
+	conc_treat <- stats::aggregate(CO2["uptake"], CO2[c("conc", "Treatment")], FUN=mean)
+	conc_all <- stats::aggregate(CO2["uptake"], CO2["conc"], FUN=mean)
+	type_treat <- stats::aggregate(CO2["uptake"], CO2[c("Type", "Treatment")], FUN=mean)
+	type_all <- stats::aggregate(CO2["uptake"], CO2["Type"], FUN=mean)
+	treat_all <- stats::aggregate(CO2["uptake"], CO2["Treatment"], FUN=mean)
+	total <- mean(CO2$uptake)
+	all_col <- c(total, conc_all$uptake)
+	type_col <- rbind(t(type_all$uptake), matrix(conc_type$uptake, nrow=7))
+	treat_col <- rbind(t(treat_all$uptake), matrix(conc_treat$uptake, nrow=7))
+	cross_col <- rbind(t(type_treat$uptake), matrix(crosstbl$uptake, nrow=7))
+	ans_mtx <- cbind(all_col, treat_col, type_col[, 1], cross_col[, c(1, 3)], type_col[, 2], cross_col[, c(2, 4)])
+	dim_conc <- c("all_conc", unique(CO2$conc))
+	dim_type <- factor_asis(c("all_Type", levels(CO2$Type)))
+	dim_treat <- factor_asis(c("all_Treatment", levels(CO2$Treatment)))
+	dimnames(ans_mtx) <- list(conc = dim_conc, `Type,Treatment` = levels(interaction(dim_type, dim_treat, sep="|", lex.order=TRUE)))
 	
 	expect_equal(test_mtx, ans_mtx)
 })
 
 test_that("example3 works", {
 	test_mtx <- totalize(esoph, agegp, c(alcgp, tobgp), ncases)
-	ans_mtx <- structure(c(200, 1, 9, 46, 76, 55, 13, 78, 0, 2, 14, 25, 31, 
-6, 58, 1, 4, 13, 23, 12, 5, 33, 0, 3, 8, 12, 10, 0, 31, 0, 0, 
-11, 16, 2, 2, 29, 0, 1, 1, 12, 11, 4, 9, 0, 0, 1, 2, 5, 1, 10, 
-0, 1, 0, 3, 4, 2, 5, 0, 0, 0, 3, 2, NA, 5, 0, 0, 0, 4, 0, 1, 
-75, 0, 4, 20, 22, 25, 4, 34, 0, 0, 6, 9, 17, 2, 17, 0, 3, 4, 
-6, 3, 1, 15, 0, 1, 5, 4, 5, 0, 9, 0, 0, 5, 3, NA, 1, 51, 0, 0, 
-12, 24, 13, 2, 19, 0, 0, 3, 9, 6, 1, 19, 0, 0, 6, 8, 4, 1, 6, 
-NA, 0, 1, 3, 2, NA, 7, 0, 0, 2, 4, 1, NA, 45, 1, 4, 13, 18, 6, 
-3, 16, 0, 2, 4, 5, 3, 2, 12, 1, 0, 3, 6, 1, 1, 7, 0, 2, 2, 2, 
-1, NA, 10, 0, NA, 4, 5, 1, NA), dim = c(7L, 25L), dimnames = list(
-    agegp = c("all", "25-34", "35-44", "45-54", "55-64", "65-74", 
-    "75+"), `alcgp,tobgp` = c("all|all", "all|0-9g/day", "all|10-19", 
-    "all|20-29", "all|30+", "0-39g/day|all", "0-39g/day|0-9g/day", 
-    "0-39g/day|10-19", "0-39g/day|20-29", "0-39g/day|30+", "40-79|all", 
-    "40-79|0-9g/day", "40-79|10-19", "40-79|20-29", "40-79|30+", 
-    "80-119|all", "80-119|0-9g/day", "80-119|10-19", "80-119|20-29", 
-    "80-119|30+", "120+|all", "120+|0-9g/day", "120+|10-19", 
-    "120+|20-29", "120+|30+")))
+	crosstbl <- stats::aggregate(esoph["ncases"], esoph[c("agegp", "alcgp", "tobgp")], FUN=sum, drop=FALSE)
+	agegp_alcgp <- stats::aggregate(esoph["ncases"], esoph[c("agegp", "alcgp")], FUN=sum, drop=FALSE)
+	agegp_tobgp <- stats::aggregate(esoph["ncases"], esoph[c("agegp", "tobgp")], FUN=sum, drop=FALSE)
+	agegp_all <- stats::aggregate(esoph["ncases"], esoph["agegp"], FUN=sum, drop=FALSE)
+	alcgp_tobgp <- stats::aggregate(esoph["ncases"], esoph[c("alcgp", "tobgp")], FUN=sum, drop=FALSE)
+	alcgp_all <- stats::aggregate(esoph["ncases"], esoph["alcgp"], FUN=sum, drop=FALSE)
+	tobgp_all <- stats::aggregate(esoph["ncases"], esoph["tobgp"], FUN=sum, drop=FALSE)
+	total <- sum(esoph$ncases)
+	all_col <- c(total, agegp_all$ncases)
+	alcgp_col <- rbind(t(alcgp_all$ncases), matrix(agegp_alcgp$ncases, nrow=6))
+	tobgp_col <- rbind(t(tobgp_all$ncases), matrix(agegp_tobgp$ncases, nrow=6))
+	cross_col <- rbind(t(alcgp_tobgp$ncases), matrix(crosstbl$ncases, nrow=6))
+	ans_mtx <- cbind(all_col, tobgp_col, alcgp_col[, 1], cross_col[, c(1, 5, 9, 13)], alcgp_col[, 2], cross_col[, c(2, 6, 10, 14)], alcgp_col[, 3], cross_col[, c(3, 7, 11, 15)], alcgp_col[, 4], cross_col[, c(4, 8, 12, 16)])
+	dim_agegp <- factor_asis(c("all_agegp", levels(esoph$agegp)))
+	dim_alcgp <- factor_asis(c("all_alcgp", levels(esoph$alcgp)))
+	dim_tobgp <- factor_asis(c("all_tobgp", levels(esoph$tobgp)))
+	dimnames(ans_mtx) <- list(agegp = dim_agegp, `alcgp,tobgp` = levels(interaction(dim_alcgp, dim_tobgp, sep="|", lex.order=TRUE)))
 	
 	expect_equal(test_mtx, ans_mtx)
 })
 
 test_that("example4 works", {
 	test_df <- totalize(esoph, agegp, c(alcgp, tobgp), ncases, asDF=TRUE, drop=TRUE)
-	ans_df <- structure(list(agegp = structure(c(1L, 1L, 1L, 1L, 1L, 1L, 1L, 
-1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 
-1L, 1L, 2L, 2L, 2L, 2L, 2L, 2L, 2L, 2L, 2L, 2L, 2L, 2L, 2L, 2L, 
-2L, 2L, 2L, 2L, 2L, 2L, 2L, 2L, 2L, 2L, 3L, 3L, 3L, 3L, 3L, 3L, 
-3L, 3L, 3L, 3L, 3L, 3L, 3L, 3L, 3L, 3L, 3L, 3L, 3L, 3L, 3L, 3L, 
-3L, 3L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 
-4L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 4L, 5L, 5L, 5L, 5L, 5L, 
-5L, 5L, 5L, 5L, 5L, 5L, 5L, 5L, 5L, 5L, 5L, 5L, 5L, 5L, 5L, 5L, 
-5L, 5L, 5L, 5L, 6L, 6L, 6L, 6L, 6L, 6L, 6L, 6L, 6L, 6L, 6L, 6L, 
-6L, 6L, 6L, 6L, 6L, 6L, 6L, 6L, 6L, 6L, 6L, 6L, 7L, 7L, 7L, 7L, 
-7L, 7L, 7L, 7L, 7L, 7L, 7L, 7L, 7L, 7L, 7L, 7L, 7L, 7L, 7L, 7L
-), levels = c("all", "25-34", "35-44", "45-54", "55-64", "65-74", 
-"75+"), class = c("ordered", "factor")), alcgp = structure(c(1L, 
-1L, 1L, 1L, 1L, 2L, 2L, 2L, 2L, 2L, 3L, 3L, 3L, 3L, 3L, 4L, 4L, 
-4L, 4L, 4L, 5L, 5L, 5L, 5L, 5L, 1L, 1L, 1L, 1L, 1L, 2L, 2L, 2L, 
-2L, 2L, 3L, 3L, 3L, 3L, 3L, 4L, 4L, 4L, 4L, 5L, 5L, 5L, 5L, 5L, 
-1L, 1L, 1L, 1L, 1L, 2L, 2L, 2L, 2L, 2L, 3L, 3L, 3L, 3L, 3L, 4L, 
-4L, 4L, 4L, 4L, 5L, 5L, 5L, 5L, 1L, 1L, 1L, 1L, 1L, 2L, 2L, 2L, 
-2L, 2L, 3L, 3L, 3L, 3L, 3L, 4L, 4L, 4L, 4L, 4L, 5L, 5L, 5L, 5L, 
-5L, 1L, 1L, 1L, 1L, 1L, 2L, 2L, 2L, 2L, 2L, 3L, 3L, 3L, 3L, 3L, 
-4L, 4L, 4L, 4L, 4L, 5L, 5L, 5L, 5L, 5L, 1L, 1L, 1L, 1L, 1L, 2L, 
-2L, 2L, 2L, 2L, 3L, 3L, 3L, 3L, 4L, 4L, 4L, 4L, 4L, 5L, 5L, 5L, 
-5L, 5L, 1L, 1L, 1L, 1L, 1L, 2L, 2L, 2L, 2L, 3L, 3L, 3L, 3L, 3L, 
-4L, 4L, 4L, 5L, 5L, 5L), levels = c("all", "0-39g/day", "40-79", 
-"80-119", "120+"), class = c("ordered", "factor")), tobgp = structure(c(1L, 
-2L, 3L, 4L, 5L, 1L, 2L, 3L, 4L, 5L, 1L, 2L, 3L, 4L, 5L, 1L, 2L, 
-3L, 4L, 5L, 1L, 2L, 3L, 4L, 5L, 1L, 2L, 3L, 4L, 5L, 1L, 2L, 3L, 
-4L, 5L, 1L, 2L, 3L, 4L, 5L, 1L, 2L, 3L, 5L, 1L, 2L, 3L, 4L, 5L, 
-1L, 2L, 3L, 4L, 5L, 1L, 2L, 3L, 4L, 5L, 1L, 2L, 3L, 4L, 5L, 1L, 
-2L, 3L, 4L, 5L, 1L, 2L, 3L, 4L, 1L, 2L, 3L, 4L, 5L, 1L, 2L, 3L, 
-4L, 5L, 1L, 2L, 3L, 4L, 5L, 1L, 2L, 3L, 4L, 5L, 1L, 2L, 3L, 4L, 
-5L, 1L, 2L, 3L, 4L, 5L, 1L, 2L, 3L, 4L, 5L, 1L, 2L, 3L, 4L, 5L, 
-1L, 2L, 3L, 4L, 5L, 1L, 2L, 3L, 4L, 5L, 1L, 2L, 3L, 4L, 5L, 1L, 
-2L, 3L, 4L, 5L, 1L, 2L, 3L, 4L, 1L, 2L, 3L, 4L, 5L, 1L, 2L, 3L, 
-4L, 5L, 1L, 2L, 3L, 4L, 5L, 1L, 2L, 3L, 5L, 1L, 2L, 3L, 4L, 5L, 
-1L, 2L, 3L, 1L, 2L, 3L), levels = c("all", "0-9g/day", "10-19", 
-"20-29", "30+"), class = c("ordered", "factor")), ncases = c(200, 
-78, 58, 33, 31, 29, 9, 10, 5, 5, 75, 34, 17, 15, 9, 51, 19, 19, 
-6, 7, 45, 16, 12, 7, 10, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 9, 2, 4, 3, 0, 1, 0, 1, 0, 
-0, 4, 0, 3, 1, 0, 0, 0, 0, 0, 0, 4, 2, 0, 2, 46, 14, 13, 8, 11, 
-1, 1, 0, 0, 0, 20, 6, 4, 5, 5, 12, 3, 6, 1, 2, 13, 4, 3, 2, 4, 
-76, 25, 23, 12, 16, 12, 2, 3, 3, 4, 22, 9, 6, 4, 3, 24, 9, 8, 
-3, 4, 18, 5, 6, 2, 5, 55, 31, 12, 10, 2, 11, 5, 4, 2, 0, 25, 
-17, 3, 5, 13, 6, 4, 2, 1, 6, 3, 1, 1, 1, 13, 6, 5, 0, 2, 4, 1, 
-2, 1, 4, 2, 1, 0, 1, 2, 1, 1, 3, 2, 1)), row.names = c(NA, -167L
-), class = "data.frame")
+	crosstbl <- stats::aggregate(esoph["ncases"], esoph[c("agegp", "alcgp", "tobgp")], FUN=sum)
+	agegp_alcgp <- stats::aggregate(esoph["ncases"], esoph[c("agegp", "alcgp")], FUN=sum)
+	agegp_tobgp <- stats::aggregate(esoph["ncases"], esoph[c("agegp", "tobgp")], FUN=sum)
+	agegp_all <- stats::aggregate(esoph["ncases"], esoph["agegp"], FUN=sum)
+	alcgp_tobgp <- stats::aggregate(esoph["ncases"], esoph[c("alcgp", "tobgp")], FUN=sum)
+	alcgp_all <- stats::aggregate(esoph["ncases"], esoph["alcgp"], FUN=sum)
+	tobgp_all <- stats::aggregate(esoph["ncases"], esoph["tobgp"], FUN=sum)
+	total <- data.frame(agegp="all_agegp", alcgp="all_alcgp", tobgp="all_tobgp", ncases=sum(esoph$ncases))
+	agegp_alcgp <- cbind(agegp_alcgp, tobgp="all_tobgp")
+	agegp_tobgp <- cbind(agegp_tobgp, alcgp="all_alcgp")
+	agegp_all <- cbind(agegp_all, alcgp="all_alcgp", tobgp="all_tobgp")
+	alcgp_tobgp <- cbind(alcgp_tobgp, agegp="all_agegp")
+	alcgp_all <- cbind(alcgp_all, agegp="all_agegp", tobgp="all_tobgp")
+	tobgp_all <- cbind(tobgp_all, agegp="all_agegp", alcgp="all_alcgp")
+	ans_df <- rbind(total, agegp_all, alcgp_all, tobgp_all, agegp_alcgp, agegp_tobgp, alcgp_tobgp, crosstbl)
+	ans_df <- transform(ans_df, agegp = factor(agegp, levels=c("all_agegp", levels(esoph$agegp))), alcgp = ordered(alcgp, levels=c("all_alcgp", levels(esoph$alcgp))), tobgp = ordered(tobgp, levels=c("all_tobgp", levels(esoph$tobgp))))
+	ans_df <- ans_df[order(ans_df$agegp, ans_df$alcgp, ans_df$tobgp), ]
+	row.names(ans_df) <- NULL
 	
 	expect_equal(test_df, ans_df)
 })
 
 test_that("example5 works", {
-	set.seed(1234L)
-	test_mtx <- transform(CO2, weight=rnorm(nrow(CO2), 10, 1)) |> totalize_weightedmean(Type, Treatment, val=uptake, weight=weight)
-	ans_mtx <- structure(c(27.120460529595913, 33.626115170265827, 20.783580420951875, 
-30.623165297825235, 35.371341437946292, 25.84663890214361, 23.62083098486216, 
-31.82454218453087, 15.883336691998933), dim = c(3L, 3L), dimnames = list(
-    Type = c("all", "Quebec", "Mississippi"), Treatment = c("all", 
-    "nonchilled", "chilled")))
+	test_mtx <- totalize(penguins, species, island)
+	crosstbl <- table(penguins$species, penguins$island)
+	species_all <- table(penguins$species)
+	island_all <- table(penguins$island)
+	crosstbl[crosstbl == 0] <- NA
+	species_all[species_all == 0] <- NA
+	island_all[island_all == 0] <- NA
+	total <- nrow(penguins)
+	all_col <- c(total, species_all)
+	cross_col <- rbind(island_all, crosstbl)
+	ans_mtx <- cbind(all_col, cross_col)
+	dim_species <- factor_asis(c("all_species", levels(penguins$species)))
+	dim_island <- factor_asis(c("all_island", levels(penguins$island)))
+	dimnames(ans_mtx) <- list(species = dim_species, island = dim_island)
 	
 	expect_equal(test_mtx, ans_mtx)
 })
+
+test_that("example6 works", {
+	test_mtx <- totalize(penguins, species, island, body_mass, FUN=sum, na.rm=TRUE)
+	crosstbl <- stats::aggregate(penguins["body_mass"], penguins[c("species", "island")], FUN=sum, na.rm=TRUE, drop=FALSE)
+	species_all <- stats::aggregate(penguins["body_mass"], penguins["species"], FUN=sum, na.rm=TRUE, drop=FALSE)
+	island_all <- stats::aggregate(penguins["body_mass"], penguins["island"], FUN=sum, na.rm=TRUE, drop=FALSE)
+	total <- sum(penguins$body_mass, na.rm=TRUE)
+	all_col <- c(total, species_all$body_mass)
+	cross_col <- rbind(t(island_all$body_mass), matrix(crosstbl$body_mass, nrow=3))
+	ans_mtx <- cbind(all_col, cross_col)
+	dim_species <- factor_asis(c("all_species", levels(penguins$species)))
+	dim_island <- factor_asis(c("all_island", levels(penguins$island)))
+	dimnames(ans_mtx) <- list(species = dim_species, island = dim_island)
+
+	expect_equal(test_mtx, ans_mtx)
+})
+
+test_that("1-column table", {
+	test_mtx <- totalize(esoph, agegp, val=ncases)
+	crosstbl <- stats::aggregate(esoph["ncases"], esoph["agegp"], FUN=sum, drop=FALSE)
+	total <- sum(esoph$ncases)
+	ans_mtx <- matrix(c(total, crosstbl$ncases), ncol=1)
+	dimnames(ans_mtx) <- list(agegp = c("all_agegp", levels(esoph$agegp)), "ncases")
+
+	expect_equal(test_mtx, ans_mtx)
+})
+
+test_that("weighted mean works (DF)", {
+	CO2_Weight <- transform(CO2, weight=rnorm(nrow(CO2), 10, 1))
+	CO2_Weight <- transform(CO2_Weight, uptake_w = uptake * weight)
+	uptake_w_sum <- totalize(CO2_Weight, Type, Treatment, val=uptake_w, asDF=TRUE)
+	weight_sum <- totalize(CO2_Weight, Type, Treatment, val=weight, asDF=TRUE)
+	test_df <- transform(uptake_w_sum, uptake_mean = uptake_w_sum$uptake_w / weight_sum$weight)
+	crosstbl <- stats::aggregate(CO2_Weight[c("uptake_w", "weight")], CO2[c("Type", "Treatment")], FUN=sum)
+	type_all <- stats::aggregate(CO2_Weight[c("uptake_w", "weight")], CO2["Type"], FUN=sum)
+	treat_all <- stats::aggregate(CO2_Weight[c("uptake_w", "weight")], CO2["Treatment"], FUN=sum)
+	total <- data.frame(Type="all_Type", Treatment="all_Treatment", uptake_w=sum(CO2_Weight$uptake_w), weight=sum(CO2_Weight$weight))
+	type_all <- cbind(type_all, Treatment="all_Treatment")
+	treat_all <- cbind(treat_all, Type="all_Type")
+	ans_df <- rbind(total, type_all, treat_all, crosstbl) |> transform(uptake_mean = uptake_w / weight)
+	ans_df <- transform(ans_df, Type = factor(Type, levels=c("all_Type", levels(CO2$Type))), Treatment = factor(Treatment, levels=c("all_Treatment", levels(CO2$Treatment))))
+	ans_df <- ans_df[order(ans_df$Type, ans_df$Treatment), c("Type", "Treatment", "uptake_w", "uptake_mean")]
+	row.names(ans_df) <- NULL
+
+	expect_equal(test_df, ans_df)
+})
+
+test_that("weighted mean works (Matrix)", {
+	CO2_Weight <- transform(CO2, weight=rnorm(nrow(CO2), 10, 1))
+	CO2_Weight <- transform(CO2_Weight, uptake_w = uptake * weight)
+	uptake_w_sum <- totalize(CO2_Weight, Type, Treatment, val=uptake_w)
+	weight_sum <- totalize(CO2_Weight, Type, Treatment, val=weight)
+	test_mtx <- uptake_w_sum / weight_sum
+	crosstbl <- stats::aggregate(CO2_Weight[c("uptake_w", "weight")], CO2[c("Type", "Treatment")], FUN=sum)
+	type_all <- stats::aggregate(CO2_Weight[c("uptake_w", "weight")], CO2["Type"], FUN=sum)
+	treat_all <- stats::aggregate(CO2_Weight[c("uptake_w", "weight")], CO2["Treatment"], FUN=sum)
+	total <- data.frame(Type="all_Type", Treatment="all_Treatment", uptake_w=sum(CO2_Weight$uptake_w), weight=sum(CO2_Weight$weight))
+	type_all <- cbind(type_all, Treatment="all_Treatment")
+	treat_all <- cbind(treat_all, Type="all_Type")
+	ans_df <- rbind(total, type_all, treat_all, crosstbl) |> transform(uptake = uptake_w / weight)
+	ans_df <- transform(ans_df, Type = factor(Type, levels=c("all_Type", levels(CO2$Type))), Treatment = factor(Treatment, levels=c("all_Treatment", levels(CO2$Treatment))))
+	ans_df <- ans_df[order(ans_df$Type, ans_df$Treatment), ]
+	ans_mtx <- matrix(ans_df$uptake, nrow=nlevels(ans_df$Type), byrow=TRUE)
+	dimnames(ans_mtx) <- list(Type = levels(ans_df$Type), Treatment = levels(ans_df$Treatment))
+	
+	expect_equal(test_mtx, ans_mtx)
+})
+
+test_that("validate NSE in function 1", {
+	agegp <- 1
+	ncases <- 1
+	test_function <- function(x) {
+		totalize(x, agegp, val=ncases)
+	}
+	test_mtx <- test_function(esoph)
+	crosstbl <- stats::aggregate(esoph["ncases"], esoph["agegp"], FUN=sum, drop=FALSE)
+	total <- sum(esoph$ncases)
+	ans_mtx <- matrix(c(total, crosstbl$ncases), ncol=1)
+	dimnames(ans_mtx) <- list(agegp = c("all_agegp", levels(esoph$agegp)), "ncases")
+
+	expect_equal(test_mtx, ans_mtx)
+})
+
+test_that("validate NSE in function 2", {
+	agegp <- 1
+	ncases <- 1
+	test_function <- function(x, ...) {
+		totalize(x, ...)
+	}
+	test_mtx <- test_function(esoph, agegp, val=ncases)
+	crosstbl <- stats::aggregate(esoph["ncases"], esoph["agegp"], FUN=sum, drop=FALSE)
+	total <- sum(esoph$ncases)
+	ans_mtx <- matrix(c(total, crosstbl$ncases), ncol=1)
+	dimnames(ans_mtx) <- list(agegp = c("all_agegp", levels(esoph$agegp)), "ncases")
+
+	expect_equal(test_mtx, ans_mtx)
+})
+

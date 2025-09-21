@@ -8,7 +8,7 @@
 #' @param data A data.frame.
 #' @param row The name(s) or index number(s) of the column(s) to be used for row grouping.
 #' @param col The name(s) or index number(s) of the column(s) to be used for column grouping.
-#' @param val The name(s) or index number(s) of the column(s) containing values to be aggregated. If not specified, data counts will be returned.
+#' @param val The name or index number of the column containing values to be aggregated. If not specified, data counts will be returned.
 #' @param FUN A scalar function to be applied to each group (e.g., `sum`, `mean`).
 #' @param asDF If `TRUE`, the result will be returned as a data.frame.
 #' @param drop Whether to drop or retain unused factor levels in the data. This parameter is only relevant when `asDF = TRUE`.
@@ -21,7 +21,7 @@
 #'   These parameters also accept column index numbers from the input data.
 #'
 #' @return
-#'   A matrix (or a list of matrices) when `asDF=FALSE`. If `asDF = TRUE`, a data.frame is returned. 
+#'   A matrix (or a list of matrices) when `asDF = FALSE`. If `asDF = TRUE`, a data.frame is returned. 
 #'   Matrix representation displays all possible combinations of row and column groups, with `NA` for combinations not present in the data.
 #'   A data.frame result can exclude these unused combinations.
 #' 
@@ -35,18 +35,20 @@
 #' totalize(esoph, agegp, c(alcgp, tobgp), ncases)
 #' totalize(esoph, agegp, c(alcgp, tobgp), ncases, asDF=TRUE, drop=TRUE)
 #' 
-#' # Multiple values get into multiple matrices
-#' totalize(esoph, agegp, alcgp, val=c(ncases, ncontrols))
-#' 
-#' # Weighted mean calculation (Creating random weights for example)
-#' CO2_Weight <- transform(CO2, weight=rnorm(nrow(CO2), 10, 1))
-#' CO2_Weight <- transform(CO2_Weight, uptake_w = uptake * weight)
-#' totalize(CO2_Weight, Type, Treatment, val=c(uptake_w, weight), asDF=TRUE) |>
-#'   transform(uptake_w_mean = uptake_w / weight)
-#' 
 #' # NA handling
 #' totalize(penguins, species, island)
 #' totalize(penguins, species, island, body_mass, FUN=sum, na.rm=TRUE)
+#' 
+#' # Weighted mean calculation (Creating random weights for example)
+#' CO2_Weight <- transform(CO2, weight = rnorm(nrow(CO2), 10, 1))
+#' CO2_Weight <- transform(CO2_Weight, uptake_w = uptake * weight)
+#' uptake_w_sum <- totalize(CO2_Weight, Type, Treatment, val=uptake_w, asDF=TRUE)
+#' weight_sum <- totalize(CO2_Weight, Type, Treatment, val=weight, asDF=TRUE)
+#' transform(uptake_w_sum, uptake_mean = uptake_w_sum$uptake_w / weight_sum$weight)
+#' # or
+#' uptake_w_sum <- totalize(CO2_Weight, Type, Treatment, val=uptake_w)
+#' weight_sum <- totalize(CO2_Weight, Type, Treatment, val=weight)
+#' uptake_w_sum / weight_sum
 #' 
 totalize <- function(data, row, col=NULL, val=NULL, FUN=sum, asDF=FALSE, drop=FALSE, label_abbr=NA, ...){
 	# Argument check
@@ -60,6 +62,11 @@ totalize <- function(data, row, col=NULL, val=NULL, FUN=sum, asDF=FALSE, drop=FA
 	by_idx <- eval(substitute(c(row, col)), dataenv, enclos=parent.frame())
 	val_idx <- eval(substitute(val), dataenv, enclos=parent.frame())
 	
+	# Value must be single column
+	if(length(val_idx) > 1){
+		stop("Only one column can be specified for 'val'.", call.=FALSE)
+	}
+
 	by_df <- data[by_idx]
 	val_df <- if(is.null(val_idx)) data.frame(n=rep(1L, nrow(data))) else data[val_idx]
 	
@@ -68,45 +75,37 @@ totalize <- function(data, row, col=NULL, val=NULL, FUN=sum, asDF=FALSE, drop=FA
 
 	# All combinations of grouping columns
 	subtotal_list <- vector("list", length(by_idx))
-	for (k in seq_along(by_idx)) {
+	for(k in seq_along(by_idx)) {
 		combs <- utils::combn(length(by_idx), k, simplify = FALSE)
 		subtotal_list[[k]] <- lapply(combs, function(cb) {
 			by_tmp <- by_df
 			for (i in cb) {
 				by_tmp[[i]] <- all_labels[i]
 			}
-			lapply(val_df, function(eachVal) {
-				tapply(eachVal, interaction(by_tmp, sep = "|"), FUN = FUN, ...)
-			})
+			tapply(val_df[[1]], interaction(by_tmp, sep = "|"), FUN = FUN, ...)
 		})
 	}
-	subtotals <- lapply(seq_along(val_df), function(v_idx) {
-		unlist(lapply(subtotal_list, function(k_list) lapply(k_list, `[[`, v_idx)))
-	})
+	subtotals <- unlist(subtotal_list)
 	
 	# Aggregate each cells
-	crosscells <- lapply(val_df, function(eachVal) {
-		tapply(eachVal, interaction(by_df, sep="|"), FUN=FUN, ...)
-	})
+	crosscells <- tapply(val_df[[1]], interaction(by_df, sep = "|"), FUN = FUN, ...)
 
 	# Combine each combinations and crosscells
-	result <- lapply(seq_along(val_df), function(v_idx) {
-		c(crosscells[[v_idx]], subtotals[[v_idx]])
-	})
+	result <- c(crosscells, subtotals)
 
-	label_grid <- expand.grid(lapply(rev(seq_along(by_idx)), function(i) {
+	label_grid <- expand.grid(lapply(seq_along(by_idx), function(i) {
 		lev <- if (is.factor(by_df[[i]])) levels(by_df[[i]]) else sort(unique(by_df[[i]]))
 		c(all_labels[i], lev)
 	}))
-	# Reverse columns so that the last column varies the fastest
-	label_grid <- label_grid[rev(seq_along(by_idx))]
+	# Reorder so that the last column varies the fastest
+	label_grid <- label_grid[order(interaction(label_grid, lex.order = TRUE)), ]
 	# Ordering result
-	result <- lapply(result, `[`, levels(interaction(label_grid, sep = "|", lex.order = TRUE)))
+	result <- result[levels(interaction(label_grid, sep = "|", lex.order = TRUE))]
 
 	if(asDF){
 		result_df <- data.frame(label_grid, result, row.names = NULL)
 		names(result_df) <- c(names(by_df), names(val_df))
-		if (drop) {
+		if(drop) {
 			na_rows <- Reduce(`&`, lapply(result_df[names(val_df)], is.na))
 			result_df <- result_df[!na_rows, ]
 			row.names(result_df) <- NULL
@@ -114,7 +113,7 @@ totalize <- function(data, row, col=NULL, val=NULL, FUN=sum, asDF=FALSE, drop=FA
 		return(result_df)
 	} else {
 		rowLabel <- levels(interaction(label_grid[seq_along(row_idx)], sep="|", lex.order=TRUE))
-		colLabel <- if (!missing(col)) {
+		colLabel <- if(!missing(col)) {
 			levels(interaction(label_grid[-seq_along(row_idx)], sep="|", lex.order=TRUE))
 		} else {
 			names(val_df)
@@ -127,13 +126,8 @@ totalize <- function(data, row, col=NULL, val=NULL, FUN=sum, asDF=FALSE, drop=FA
 
 		dnames <- list(rowLabel, colLabel)
 		names(dnames) <- c(paste(names(data[row_idx]), collapse=","), paste(names(data[setdiff(by_idx, row_idx)]), collapse=","))
-		result_mtx <- lapply(result, matrix, nrow=length(rowLabel), byrow=TRUE, dimnames=dnames)
+		result_mtx <- matrix(result, nrow=length(rowLabel), byrow=TRUE, dimnames=dnames)
 
-		if(length(result_mtx) == 1){
-			result_mtx <- result_mtx[[1]]
-		} else {
-			names(result_mtx) <- names(val_df)
-		}
 		return(result_mtx)
 	}	
 }

@@ -1,6 +1,6 @@
 Package: totalize
-Title: Aggregate Values By Groups And Make Their Total
-Version: 1.0.0
+Title: Aggregate values by groups and add their group total
+Version: 1.1.0
 Authors@R: c(
     person("Ichiro", "Murata", , "ichiro21.murata@gmail.com", role = c("aut", "cre"))
     )
@@ -10,7 +10,7 @@ Description:  To count or aggregate values by groups can be done by ordinary R m
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.1
+RoxygenNote: 7.3.2
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

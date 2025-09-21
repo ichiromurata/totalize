@@ -4,73 +4,73 @@
 \alias{awayfromzero}
 \title{Rounding of Numbers}
 \usage{
-awayfromzero(x, digits = 0, tolerance = sqrt(.Machine$double.eps))
+awayfromzero(x, digits = 0)
 }
 \arguments{
 \item{x}{A numeric vector.}
 
-\item{digits}{An integer indicating the number of decimal places to be used. Negative values are allowed.}
-
-\item{tolerance}{numeric >= 0. If the difference between 2 floating point values is smaller than tolerance they are regarded as equal.}
+\item{digits}{An integer specifying the number of decimal places. Negative values can be used to round to a power of ten (e.g., \code{-2} rounds to the nearest hundred).}
 }
 \value{
-a numeric vector the same length as \code{x}.
+A numeric vector with the rounded values, having the same length as \code{x}.
 }
 \description{
-Rounds the values in its first argument to the specified number of decimal places.
-
-指定された桁位置で四捨五入を行います。
+Rounds a numeric vector to a specified number of decimal places, consistently rounding halves away from zero.
 }
 \details{
-This function is a complement of the \code{base::round()} which rounds to even when rounding off a 5, where this function rounds away from 0.
-Rounding to a negative number of digits means rounding to a power of ten, so for example \code{round(x, digits = -2)} rounds to the nearest hundred.
-
-\code{base::round()}関数は「偶数丸め」と呼ばれる丸めを行いますが、この関数は四捨五入を行います。
-負の数は絶対値が大きくなる方に丸めます。（\code{awayfromzero(-3.5)}は\code{-4}になります）
+This function provides an alternative to \code{base::round()}. While \code{base::round()} implements "round half to even" (e.g., \code{2.5} rounds to \code{2}, \code{3.5} rounds to \code{4}), \code{awayfromzero()} consistently rounds halves away from zero (e.g., \code{2.5} rounds to \code{3}, \code{-2.5} rounds to \code{-3}).
+When \code{digits} is negative, the number is rounded to a power of ten; for instance, \code{digits = -2} rounds to the nearest hundred.
 }
 \note{
-This rounding rule has been added in IEEE 754-2008 version. (But only for decimal(10) based formats.)
+The "round half away from zero" rule was formally adopted in the IEEE 754-2008 standard primarily for decimal (base-10) floating-point formats, not typically for binary floating-point numbers as used in most computing environments.
 }
-\section{Warning}{
-
-It's worth considering how much \code{tolerance} is needed, especially when rounding large numbers. (See examples)
-}
-
 \examples{
-awayfromzero(.5 + -2:4) # round away from 0 when rounding off a 5
+# awayfromzero() consistently rounds .5 away from zero
+awayfromzero(.5 + -2:4)
 ## -2 -1  1  2  3  4  5
 
-round(.5 + -2:4) # IEEE / IEC default rounding (to even)
+# For comparison, base::round() rounds .5 to the nearest even number
+round(.5 + -2:4)
 ## -2  0  0  2  2  4  4
 
-# A tolerance is necessary when testing the number .5 (because of the 
-# limitation of floating point expression)
-# No tolerance version
-no_tolerance <- function(x, digits) {
+# A naive implementation without tolerance can fail, as 0.035 might be
+# stored as 0.034999...
+naive_round <- function(x, digits) {
     floor(x * 10^digits + 0.5) / 10^digits
 }
-no_tolerance(0.005 + 1:5/100, digits = 2)	# It goes wrong at 0.035
+naive_round(0.005 + 1:5/100, digits = 2)	# Note the error at 0.035
 ## 0.02 0.03 0.03 0.05 0.06
 
+# awayfromzero() handles this correctly due to its internal tolerance
 awayfromzero(0.005 + 1:5/100, digits = 2)
 ## 0.02 0.03 0.04 0.05 0.06
 
-# When significant >= 8 the relative error becomes too small and is always 
-# less than tolerance which leads to round up (Not desired)
+# For large numbers, the all.equal() function may require a manually adjusted tolerance
+isTRUE(all.equal(12345678.4, 12345678.5))
+## TRUE
+isTRUE(all.equal(12345678.4, 12345678.5, tolerance = 1e-10))
+## FALSE
+
+# awayfromzero() correctly rounds such numbers without needing a manually adjusted tolerance
+# The internal tolerance adapts to the number's magnitude.
 awayfromzero(12345678.4, digits = 0)
-## 12345679 (!?)
-
-# So a smaller tolerance should be used
-awayfromzero(12345678.4, digits = 0, tolerance = 2e-10)
 ## 12345678
+awayfromzero(12345678.5, digits = 0)
+## 12345679
 
-# But the smallest tolerance isn't appropriate usually (Can't handle accumulated error)
+# It also correctly handles accumulated precision errors.
+# The theoretical sum of 0.3 repeated 25 times is 7.5.
+# Due to floating-point errors, the actual result is slightly less than 7.5.
 x <- 0
-for(i in 1:25) x <- x + 0.3		# 0.3 * 25 = 7.5
-awayfromzero(x, digits = 0, tolerance = .Machine$double.eps)
-## 7
+for(i in 1:25) x <- x + 0.3
+print(x, digits = 22)
+## 7.499999999999999111822
 
-# This happens also on base::round()
+# awayfromzero() correctly rounds this to 8, as expected.
+awayfromzero(x, digits = 0)
+## 8
+
+# For comparison, base::round() is susceptible to this accumulated error.
 round(x)
 ## 7
 

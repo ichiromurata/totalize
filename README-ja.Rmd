@@ -1,8 +1,8 @@
 ---
-output: github_document
+format: gfm
 ---
 
-<!-- README.md is generated from README.Rmd. Please edit that file -->
+<!-- README-ja.md is generated from README-ja.Rmd. Do not edit README-ja.md directly. -->
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
@@ -29,7 +29,11 @@ options(width=400)
 devtools::install_github("ichiromurata/totalize")
 ```
 
-# 概要
+## TL;DR
+
+![](example.png)
+
+## 概要
 
 Rにはデータを集計する様々な関数があります。
 
@@ -39,25 +43,24 @@ Rにはデータを集計する様々な関数があります。
 table(interaction(datasets::CO2$Type, datasets::CO2$Treatment))
 ```
 
-値の足し上げは`by()`や、
+値の足し上げには`tapply()`、`stats::xtabs()`、
 
 ```{r}
-by(datasets::CO2$uptake, datasets::CO2[c("Type", "Treatment")], sum)
+tapply(datasets::CO2$uptake, datasets::CO2[c("Type", "Treatment")], FUN=sum)
+
+stats::xtabs(uptake~Type+Treatment, data=datasets::CO2)
 ```
 
-`stats::aggregate()`を使うことができます。
+あるいは`stats::aggregate()`を使うことができます。
 
 ```{r}
 stats::aggregate(datasets::CO2["uptake"], datasets::CO2[c("Type", "Treatment")], sum)
 ```
 
-しかしこれらを使って小計や合計（上の例では"Type"計、"Treatment"計、合計）を並べた表を
-作るには、何回かに分けてそれらを別々に算出し、表を結合する必要があります。
+しかしこれらの関数は各グループの小計や合計（上の例では"Type"計、"Treatment"計、合計）までを一度に算出することはできません。
+そのような異なる階層の計算を行うには、別々に関数を実行する必要があります。
 
-1つのデータレコードを小計と合計に同時に足さなければいけないため、
-上のようなコマンドを1回実行するだけではすべてを算出できません。
-
-`totalize`はこれをまとめて行います。
+`totalize`はこれをまとめて一度に行います。
 
 ```{r}
 library(totalize)
@@ -70,7 +73,7 @@ totalize(datasets::CO2, c(Type, Treatment), val=uptake, asDF=TRUE)
 totalize(datasets::CO2, row=Type, col=Treatment, val=uptake)
 ```
 
-3つ以上の変数があっても、集計表に展開できます。
+3つ以上の変数があるときは、行あるいは列に組み合わせを作って2次元の集計表を作成します。
 
 ```{r}
 totalize(datasets::CO2, row=Type, col=c(Treatment, conc), val=uptake)
@@ -78,16 +81,31 @@ totalize(datasets::CO2, row=Type, col=c(Treatment, conc), val=uptake)
 totalize(datasets::CO2, row=c(Type, conc), col=Treatment, val=uptake)
 ```
 
-`FUN=sum`などの場合は`na.rm=TRUE`を引数に追加すると、データ中のNAを無視できます。
+集計する際に`NA`を無視するには、`na.rm=TRUE`などを`FUN`で指定する関数の引数に追加できます。
 
 ```{r}
 # Missing values turn the totals into NA
-transform(datasets::CO2, uptake_na=replace(uptake, c(1, 10), NA)) |>
-    totalize(row=Type, col=c(Treatment, conc), val=uptake_na)
+totalize(datasets::penguins, species, island, val=body_mass, FUN=sum)
 
 # Ignoring NAs
-transform(datasets::CO2, uptake_na=replace(uptake, c(1, 10), NA)) |>
-    totalize(row=Type, col=c(Treatment, conc), val=uptake_na, na.rm=TRUE)
+totalize(datasets::penguins, species, island, val=body_mass, FUN=sum, na.rm=TRUE)
+```
+
+## 分類不詳の扱い
+
+データによってはグループ変数の値に不詳（欠測）を含む場合があります。これを集計するときは「不詳」や「分類不能」として明示的に集計表に示すこともありますが、集計表には表示しないこともしばしばあります。
+
+このような場合に小計や合計を計算するには注意が必要です。グループごとに集計した結果を内訳として足し上げるだけでは、小計や合計から不詳のデータが除かれてしまいます。`totalize`はこれに対処するために小計や合計を全てのデータから計算しています。
+
+下の例では[palmerpenguins](https://allisonhorst.github.io/palmerpenguins/)のデータセットの`sex`列に不詳（`NA`）が含まれることから、femaleとmaleの計が小計と一致しないことを示しています。
+
+```{r}
+# Correctly count the total that does not match the sum of female + male
+totalize(datasets::penguins, species, sex)
+
+# `addmargins()` excludes the unclassified data
+xtabs(~species+sex, data=datasets::penguins) |>
+  addmargins()
 ```
 
 ## 1行（1列）のみの表
@@ -104,20 +122,23 @@ totalize(datasets::CO2, row=c(Type, Treatment), val=uptake)
 totalize(datasets::CO2, row=c(Type, Treatment), val=uptake) |> t()
 ```
 
+## Non standard evaluation (NSE)
+
+変数の名前はダブルクォーテーションで囲まずにそのまま渡すことができます。（Non-standard evaluation）
+
 # 四捨五入について
 
-このパッケージでは四捨五入をする関数`awayfromzero()`を提供しています。
+このパッケージでは四捨五入を行う関数`awayfromzero()`を提供しています。
 
 Rの`round()`関数は四捨五入ではなく偶数丸めを行います。四捨五入の関数はbase Rには含まれていません。
 
-ただし、浮動小数点数の丸めには気を付けるべき点があります。
-`awayfromzero()`のヘルプページを参照してください。
+`awayfromzero()`は浮動小数点形式の有効桁数の問題に対処するため、入力された数の桁数に応じて切り上げと切り下げを判定する精度を変化させています。
 
 四捨五入はパイプ演算子`|>`で結んで実行できます。
 
 ```{r}
 totalize(datasets::CO2, row=c(Treatment, conc), col=Type, val=uptake, FUN=mean) |>
-    awayfromzero(1)
+    awayfromzero(digits = 1)
 ```
 
 
