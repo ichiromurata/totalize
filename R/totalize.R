@@ -1,25 +1,25 @@
-#' Aggregate values by groups and make their total
+#' Aggregate values by groups and add their group total
 #'
 #' @description
-#'   Aggregate values by groups and make their total.
+#'   Aggregate values by groups and add their group total.
 #'   If there are 2 or more groups, the total of each group (subtotals) and the whole total will be made.
-#'   `totalize` calculate values using a simple function such as `sum`, `mean`, and more.
-#'   `totalize_weightedmean` is the convenience version for calculating weighted mean.
+#'   `totalize` calculate values using a simple function such as `sum`, `mean`, etc.
+#'   `totalize_weightedmean` is a convenient version for calculating weighted mean.
 #'
 #' @param data A data.frame.
 #' @param row Grouping column name(s) to be arranged by row.
 #' @param col Grouping column name(s) to be arranged by column.
 #' @param val A column name to be aggregated. If not specified, data counts will be returned.
 #' @param weight A column name to be a weight for calculating weighted mean.
-#' @param FUN Function to be applied for each group.
+#' @param FUN A scalar function to be applied for each group.
 #' @param asDF If `TRUE`, a data.frame will be returned.
-#' @param drop Whether to drop or retain unused factors in data. This is only for the data.frame result.
-#' @param label_abbr Grouping item names in the result matrix will be abbreviated to this length.
+#' @param drop Whether to drop or retain unused factors in data. This is only for `asDF=TRUE`.
+#' @param label_abbr Grouping item names in the result matrix will be abbreviated to this length. This is only for `asDF=FALSE`
 #' @param ... Further arguments passed to `FUN`.
 #'
 #' @details
-#'   Parameters `row`, `col`, `val`, and `weight` accept direct names of the input data.
-#'   This means you don't need to give these names as character vector (See examples). 
+#'   Parameters `row`, `col`, `val`, and `weight` handle column names with non-standard evaluation.
+#'   This means you don't need to give these names as a character vector (See examples). 
 #'   These parameters also accept column index numbers of the input data.
 #'
 #' @return
@@ -55,9 +55,9 @@ totalize <- function(data, row, col=NULL, val=NULL, FUN=sum, asDF=FALSE, drop=FA
 	by_df <- data[by_idx]
 	val_df <- if(is.null(val_idx)) list(n=rep(1L, nrow(data))) else data[val_idx]
 	
-	# All combinations of choosing some columns in `by_df`
+	# All combinations of subtotals
 	comb <- lapply(seq_along(by_idx), utils::combn, x=length(by_idx), simplify=FALSE)
-	# Aggregate all items in some columns
+	# Column totals
 	subtotalList <- lapply(comb, function(cbList){
 		tmptotal <- lapply(cbList, function(cb) {
 			labels <- by_df
@@ -67,7 +67,7 @@ totalize <- function(data, row, col=NULL, val=NULL, FUN=sum, asDF=FALSE, drop=FA
 		do.call(rbind, tmptotal)
 		})
 	subtotals <- do.call(rbind, subtotalList)
-	# Aggregate by each columns (ordinary aggregation)
+	# Aggregate each cells
 	crosscells <- stats::aggregate(val_df, by_df, FUN=FUN, ..., drop=drop)
 	
 	result <- rbind(crosscells, subtotals)
